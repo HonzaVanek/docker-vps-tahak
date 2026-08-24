@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VPS & Linux – Docker/VPS tahák</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="index.html">Docker/VPS tahák</a>
+    <nav>
+      <ul>
+        <li><a href="vps-linux.html">VPS & Linux</a></li>
+        <li><a href="docker.html">Docker</a></li>
+        <li><a href="nginx-https.html">Nginx & HTTPS</a></li>
+        <li><a href="git-deploy.html">Git & deploy</a></li>
+        <li><a href="troubleshooting.html">Chyby</a></li>
+        <li><a href="prikazy.html">Příkazy</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section class="hero">
+  <span class="badge">kapitola 1</span>
+  <h1>VPS, SSH a Linuxový základ</h1>
+  <p>Co musí být připravené, než se vůbec začne řešit Docker a webová aplikace.</p>
+</section>
+
+<section class="toc card">
+  <h2>Obsah</h2>
+  <ul>
+    <li><a href="#ssh">První SSH připojení</a></li>
+    <li><a href="#user">Běžný uživatel a sudo</a></li>
+    <li><a href="#permissions">Linuxová oprávnění</a></li>
+    <li><a href="#apt">APT</a></li>
+    <li><a href="#systemd">systemd služby</a></li>
+    <li><a href="#ports">Porty a ss</a></li>
+  </ul>
+</section>
+
+<section id="ssh">
+  <h2>1. První SSH připojení</h2>
+  <pre><code>ssh root@YOUR_VPS_IP</code></pre>
+  <p>
+    Při prvním připojení SSH zobrazí fingerprint serveru. Je to kontrola identity serveru.
+    Po odsouhlasení se host key uloží do <code>known_hosts</code>.
+  </p>
+  <div class="callout warn">
+    Root heslo nebo private key se nikam neposílá. Pokud bylo heslo někde nechtěně zveřejněno, okamžitě se mění.
+  </div>
+  <pre><code>passwd</code></pre>
+</section>
+
+<section id="user">
+  <h2>2. Běžný uživatel místo každodenní práce jako root</h2>
+  <pre><code>adduser mojejmeno
+usermod -aG sudo mojejmeno
+id mojejmeno</code></pre>
+  <p>
+    <code>-aG</code> znamená „append to supplementary groups“. Důležité je <code>-a</code>:
+    bez něj by bylo možné přepsat existující doplňkové skupiny.
+  </p>
+  <p>Přihlášení:</p>
+  <pre><code>ssh mojejmeno@YOUR_VPS_IP</code></pre>
+  <p>Ověření:</p>
+  <pre><code>whoami
+pwd
+sudo whoami</code></pre>
+  <p><code>sudo</code> spustí konkrétní příkaz s vyššími právy. Nemění trvale shell na root.</p>
+</section>
+
+<section id="permissions">
+  <h2>3. Oprávnění souborů a adresářů</h2>
+  <pre><code>ls -l
+ls -la
+ls -ld /root</code></pre>
+  <p>Příklad:</p>
+  <pre><code>drwxr-xr-x</code></pre>
+  <table>
+    <tr><th>Část</th><th>Význam</th></tr>
+    <tr><td><code>d</code></td><td>adresář</td></tr>
+    <tr><td><code>rwx</code></td><td>owner: read, write, execute</td></tr>
+    <tr><td><code>r-x</code></td><td>group: read, execute</td></tr>
+    <tr><td><code>r-x</code></td><td>others: read, execute</td></tr>
+  </table>
+  <p>
+    U adresáře znamená <code>x</code> možnost adresářem procházet a přistupovat k položkám uvnitř.
+    <code>.</code> je aktuální adresář a <code>..</code> jeho rodič.
+  </p>
+  <pre><code>touch /root/test.txt
+sudo touch /root/test.txt</code></pre>
+  <p>První příkaz běžnému uživateli selže, druhý projde díky <code>sudo</code>.</p>
+</section>
+
+<section id="apt">
+  <h2>4. APT – balíčkovací systém Debianu</h2>
+  <pre><code>sudo apt update
+sudo apt install nginx
+sudo apt install ca-certificates curl</code></pre>
+  <p>
+    <code>apt update</code> neaktualizuje programy. Stáhne nová metadata z repozitářů.
+    <code>apt install</code> následně instaluje balíčky a jejich závislosti.
+  </p>
+  <p>Repozitáře jsou typicky definované v:</p>
+  <pre><code>/etc/apt/sources.list
+/etc/apt/sources.list.d/</code></pre>
+</section>
+
+<section id="systemd">
+  <h2>5. systemd – správce služeb</h2>
+  <pre><code>systemctl status nginx
+systemctl status docker</code></pre>
+  <table>
+    <tr><th>Stav</th><th>Význam</th></tr>
+    <tr><td><code>enabled</code></td><td>služba je nastavena, aby startovala při bootu</td></tr>
+    <tr><td><code>active (running)</code></td><td>právě běží</td></tr>
+  </table>
+  <pre><code>sudo systemctl reload nginx
+sudo systemctl restart nginx</code></pre>
+  <p>
+    <code>reload</code> znovu načte konfiguraci bez úplného shození služby.
+    <code>restart</code> službu zastaví a znovu spustí.
+  </p>
+</section>
+
+<section id="ports">
+  <h2>6. Porty a kdo na nich poslouchá</h2>
+  <pre><code>sudo ss -tulpn</code></pre>
+  <p>Typický stav:</p>
+  <pre><code>0.0.0.0:22     SSH
+0.0.0.0:80     nginx
+[::]:22        SSH přes IPv6
+[::]:80        nginx přes IPv6</code></pre>
+  <p>
+    <code>0.0.0.0</code> znamená všechna IPv4 rozhraní. <code>[::]</code> je obdobný zápis pro IPv6.
+  </p>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    Praktický tahák vznikl z jednoho kompletního cvičení: VPS → nginx → Docker → Git → HTTPS → opakovaný deploy.
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+
+</body>
+</html>

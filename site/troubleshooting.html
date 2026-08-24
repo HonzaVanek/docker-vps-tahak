@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Troubleshooting – Docker/VPS tahák</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="index.html">Docker/VPS tahák</a>
+    <nav>
+      <ul>
+        <li><a href="vps-linux.html">VPS & Linux</a></li>
+        <li><a href="docker.html">Docker</a></li>
+        <li><a href="nginx-https.html">Nginx & HTTPS</a></li>
+        <li><a href="git-deploy.html">Git & deploy</a></li>
+        <li><a href="troubleshooting.html">Chyby</a></li>
+        <li><a href="prikazy.html">Příkazy</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section class="hero">
+  <span class="badge">kapitola 5</span>
+  <h1>Chyby, které jsme si už zažili</h1>
+  <p>Krátká diagnostika podle reálných problémů, na které jsme během cvičení narazili.</p>
+</section>
+
+<section>
+  <h2>Docker: permission denied</h2>
+  <pre><code>docker ps
+permission denied while trying to connect to the docker API at unix:///var/run/docker.sock</code></pre>
+  <p>Diagnostika:</p>
+  <pre><code>ls -l /var/run/docker.sock</code></pre>
+  <p>Typicky je socket <code>root:docker</code>. Řešení v našem setupu:</p>
+  <pre><code>sudo docker ps</code></pre>
+</section>
+
+<section>
+  <h2>Port 80 už používá systémový nginx</h2>
+  <pre><code>sudo docker run -p 80:80 nginx</code></pre>
+  <p>Selže:</p>
+  <pre><code>failed to bind host port 0.0.0.0:80/tcp: address already in use</code></pre>
+  <p>Proto backend publikujeme třeba na 8080:</p>
+  <pre><code>-p 127.0.0.1:8080:80</code></pre>
+</section>
+
+<section>
+  <h2>Neúspěšný docker run může zanechat container ve stavu Created</h2>
+  <pre><code>sudo docker ps -a</code></pre>
+  <p>Odstranění:</p>
+  <pre><code>sudo docker rm JMENO_CONTAINERU</code></pre>
+</section>
+
+<section>
+  <h2>Git: not a git repository</h2>
+  <pre><code>fatal: not a git repository (or any of the parent directories): .git</code></pre>
+  <p>
+    Nejčastěji stojíš v jiném adresáři. Po SSH loginu se typicky vrátíš do <code>~</code>, ne do projektu.
+  </p>
+  <pre><code>pwd
+ls -la
+cd ~/docker-static
+git status</code></pre>
+</section>
+
+<section>
+  <h2>GitHub SSH: Permission denied (publickey)</h2>
+  <p>
+    Klíč může existovat, ale GitHub ho nezná nebo SSH používá jiný identity file.
+  </p>
+  <pre><code>ssh -i ~/.ssh/id_ed25519_github -T git@github.com</code></pre>
+  <p>Na Windows lze zkontrolovat výslednou SSH konfiguraci:</p>
+  <pre><code>ssh -G github.com | Select-String "hostname|user|identityfile|identitiesonly"</code></pre>
+</section>
+
+<section>
+  <h2>Git diff otevřel pager less</h2>
+  <p>
+    Když dole vidíš <code>(END)</code>, jsi v <code>less</code>. Návrat do shellu:
+    <span class="kbd">q</span>.
+  </p>
+  <p>Bez pageru:</p>
+  <pre><code>git --no-pager diff --cached</code></pre>
+</section>
+
+<section>
+  <h2>Nginx změny se neprojevily</h2>
+  <p>Po editaci konfigurace:</p>
+  <pre><code>sudo nginx -t
+sudo systemctl reload nginx</code></pre>
+</section>
+
+<section>
+  <h2>Web po rebootu vrací 502</h2>
+  <p>Zkontrolovat:</p>
+  <pre><code>systemctl status nginx
+systemctl status docker
+sudo docker ps
+curl http://127.0.0.1:8080</code></pre>
+  <p>
+    Pokud container neběží, systémový nginx nemá kam proxyovat a může vrátit <code>502 Bad Gateway</code>.
+  </p>
+</section>
+
+<section>
+  <h2>Rychlá diagnostická pyramida</h2>
+  <div class="arch">1. DNS
+   └─ resolves doména správně?
+
+2. port / nginx
+   └─ curl -I http(s)://domena
+
+3. reverse proxy
+   └─ nginx -t
+   └─ systemctl status nginx
+
+4. backend na localhostu
+   └─ curl http://127.0.0.1:8080
+
+5. Docker
+   └─ docker ps
+   └─ docker logs CONTAINER
+
+6. image / build
+   └─ docker image ls
+   └─ docker build ...</div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    Praktický tahák vznikl z jednoho kompletního cvičení: VPS → nginx → Docker → Git → HTTPS → opakovaný deploy.
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+
+</body>
+</html>

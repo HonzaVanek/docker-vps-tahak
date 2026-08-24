@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nginx & HTTPS – Docker/VPS tahák</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="index.html">Docker/VPS tahák</a>
+    <nav>
+      <ul>
+        <li><a href="vps-linux.html">VPS & Linux</a></li>
+        <li><a href="docker.html">Docker</a></li>
+        <li><a href="nginx-https.html">Nginx & HTTPS</a></li>
+        <li><a href="git-deploy.html">Git & deploy</a></li>
+        <li><a href="troubleshooting.html">Chyby</a></li>
+        <li><a href="prikazy.html">Příkazy</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section class="hero">
+  <span class="badge">kapitola 3</span>
+  <h1>Nginx, reverse proxy, DNS a HTTPS</h1>
+  <p>Jak jsme oddělili veřejnou vrstvu VPS od backendu v Dockeru a přidali TLS přes Let's Encrypt.</p>
+</section>
+
+<section>
+  <h2>Systémový nginx vs. nginx v containeru</h2>
+  <div class="arch">INTERNET
+   ↓
+systémový nginx na VPS
+(reverse proxy + HTTPS)
+   ↓
+127.0.0.1:8080
+   ↓
+nginx v containeru
+(statický webserver)
+   ↓
+index.html</div>
+  <p>
+    Nginx není automaticky reverse proxy. Reverse proxy z něj dělá až konfigurace typu
+    <code>proxy_pass</code>.
+  </p>
+</section>
+
+<section>
+  <h2>Debianí struktura nginx konfigurace</h2>
+  <pre><code>/etc/nginx/sites-available/
+/etc/nginx/sites-enabled/</code></pre>
+  <p>
+    <code>sites-available</code> obsahuje připravené konfigurace.
+    <code>sites-enabled</code> obsahuje aktivní konfigurace, typicky jako symlinky.
+  </p>
+  <pre><code>sudo ln -s \
+  /etc/nginx/sites-available/docker.example.cz \
+  /etc/nginx/sites-enabled/docker.example.cz</code></pre>
+  <p><code>ln -s</code> vytvoří symbolický odkaz.</p>
+</section>
+
+<section>
+  <h2>Konfigurace jedné domény</h2>
+  <pre><code>server {
+    listen 80;
+    listen [::]:80;
+
+    server_name docker.example.cz;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}</code></pre>
+  <p>
+    <code>server_name</code> vybírá virtual host podle HTTP hlavičky <code>Host</code>.
+    Díky tomu může jeden VPS a jedna veřejná IP obsluhovat mnoho různých domén.
+  </p>
+  <div class="arch">app1.example.cz → nginx → 127.0.0.1:8080 → container A
+app2.example.cz → nginx → 127.0.0.1:8081 → container B
+app3.example.cz → nginx → 127.0.0.1:8082 → container C</div>
+</section>
+
+<section>
+  <h2>Proxy hlavičky</h2>
+  <table>
+    <tr><th>Hlavička</th><th>Co předává backendu</th></tr>
+    <tr><td><code>Host</code></td><td>původní doménu</td></tr>
+    <tr><td><code>X-Real-IP</code></td><td>IP návštěvníka</td></tr>
+    <tr><td><code>X-Forwarded-For</code></td><td>řetězec proxy/IP přes které request prošel</td></tr>
+    <tr><td><code>X-Forwarded-Proto</code></td><td>zda klient přišel přes http nebo https</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>Kontrola a reload nginxu</h2>
+  <pre><code>sudo nginx -t
+sudo systemctl reload nginx</code></pre>
+  <p>
+    Nejdřív syntaktický test, až potom reload. Je to bezpečnější než slepý restart.
+  </p>
+</section>
+
+<section>
+  <h2>DNS</h2>
+  <p>U správce domény jsme vytvořili A záznam:</p>
+  <pre><code>docker.example.cz   A   YOUR_VPS_IP</code></pre>
+  <p>Ověření:</p>
+  <pre><code>Resolve-DnsName docker.example.cz
+nslookup docker.example.cz
+curl -v http://docker.example.cz</code></pre>
+  <p>
+    HTTP request obsahuje <code>Host: docker.example.cz</code>, podle něhož nginx vybere správný server block.
+  </p>
+</section>
+
+<section>
+  <h2>Let's Encrypt, ACME a Certbot</h2>
+  <div class="grid">
+    <div class="card"><h3>Let's Encrypt</h3><p>Certifikační autorita, která vydává certifikát.</p></div>
+    <div class="card"><h3>ACME</h3><p>Automatizovaný protokol pro vydání/obnovu certifikátu.</p></div>
+    <div class="card"><h3>Certbot</h3><p>ACME klient na našem VPS.</p></div>
+    <div class="card"><h3>nginx</h3><p>Server, který certifikát skutečně používá pro TLS.</p></div>
+  </div>
+  <pre><code>sudo apt install certbot python3-certbot-nginx
+certbot --version</code></pre>
+  <pre><code>sudo certbot --nginx -d docker.example.cz</code></pre>
+</section>
+
+<section>
+  <h2>TLS termination</h2>
+  <div class="arch">browser
+   │ HTTPS :443
+   │ šifrovaně
+   ▼
+systémový nginx
+   │ certifikát + private key
+   │ TLS zde končí
+   ▼
+HTTP na 127.0.0.1:8080
+   ▼
+Docker container</div>
+  <p>
+    Backend může běžet přes obyčejné HTTP, protože komunikace zůstává uvnitř VPS na loopbacku.
+  </p>
+</section>
+
+<section>
+  <h2>Co Certbot přidal do nginxu</h2>
+  <pre><code>listen 443 ssl;
+ssl_certificate /etc/letsencrypt/live/docker.example.cz/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/docker.example.cz/privkey.pem;</code></pre>
+  <p>
+    <code>fullchain.pem</code> je veřejný certifikát + certifikační řetězec.
+    <code>privkey.pem</code> je tajný soukromý klíč.
+  </p>
+  <p>HTTP port 80 se pak typicky používá jen pro redirect:</p>
+  <pre><code>return 301 https://$host$request_uri;</code></pre>
+</section>
+
+<section>
+  <h2>Ověření HTTPS</h2>
+  <pre><code>curl -I http://docker.example.cz
+# očekáváme 301
+
+curl -I https://docker.example.cz
+# očekáváme 200</code></pre>
+</section>
+
+<section>
+  <h2>Automatické obnovování certifikátu</h2>
+  <pre><code>systemctl status certbot.timer
+sudo certbot renew --dry-run</code></pre>
+  <p>
+    Timer běží pravidelně, ale nový certifikát se nevydává při každém spuštění.
+    Certbot obnovuje až certifikáty, které se blíží expiraci.
+  </p>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    Praktický tahák vznikl z jednoho kompletního cvičení: VPS → nginx → Docker → Git → HTTPS → opakovaný deploy.
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+
+</body>
+</html>

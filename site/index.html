@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Úvod – Docker/VPS tahák</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="index.html">Docker/VPS tahák</a>
+    <nav>
+      <ul>
+        <li><a href="vps-linux.html">VPS & Linux</a></li>
+        <li><a href="docker.html">Docker</a></li>
+        <li><a href="nginx-https.html">Nginx & HTTPS</a></li>
+        <li><a href="git-deploy.html">Git & deploy</a></li>
+        <li><a href="troubleshooting.html">Chyby</a></li>
+        <li><a href="prikazy.html">Příkazy</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section class="hero">
+  <span class="badge">praktická rekapitulace</span>
+  <h1>Od prázdného VPS až k HTTPS webu v Dockeru</h1>
+  <p>
+    Tahle mini-dokumentace shrnuje celý postup, který jsme si prošli:
+    Linuxový VPS, SSH, uživatelé a sudo, APT, systémový nginx, Docker Engine,
+    vlastní Docker image, port mapping, reverse proxy, DNS, Let's Encrypt,
+    Certbot, restart policy, GitHub a deploy nové verze z lokálního počítače.
+  </p>
+</section>
+
+<section>
+  <h2>Výsledná architektura</h2>
+  <div class="arch">INTERNET
+   │
+   │ DNS: docker.example.cz → veřejná IPv4 VPS
+   ▼
+VPS / Debian Linux
+   │
+   ├── :22  SSH
+   │
+   └── :80 / :443
+          │
+          ▼
+   systémový nginx
+   reverse proxy + TLS termination
+          │
+          │ proxy_pass http://127.0.0.1:8080
+          ▼
+      Docker Engine
+          │
+          ▼
+   127.0.0.1:8080 → container:80
+          │
+          ▼
+   nginx uvnitř containeru
+          │
+          ▼
+        HTML/CSS/JS</div>
+</section>
+
+<section class="grid">
+  <div class="card">
+    <h3>1. VPS & Linux</h3>
+    <p>SSH, normální uživatel, sudo, permissions, APT, systemd a porty.</p>
+    <a href="vps-linux.html">Projít kapitolu →</a>
+  </div>
+  <div class="card">
+    <h3>2. Docker</h3>
+    <p>Engine, CLI, containerd, runtime, image, container, build a port mapping.</p>
+    <a href="docker.html">Projít kapitolu →</a>
+  </div>
+  <div class="card">
+    <h3>3. Nginx & HTTPS</h3>
+    <p>Reverse proxy, server_name, sites-available, Certbot, TLS a automatické obnovování.</p>
+    <a href="nginx-https.html">Projít kapitolu →</a>
+  </div>
+  <div class="card">
+    <h3>4. Git & deploy</h3>
+    <p>Repo na GitHubu, SSH klíče, local → push → VPS pull → nový image → nový container.</p>
+    <a href="git-deploy.html">Projít kapitolu →</a>
+  </div>
+</section>
+
+<section>
+  <h2>Tři základní principy</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Container není virtuální server</h3>
+      <p>Je to izolovaný proces/prostředí nad stejným Linuxovým kernelem. Běží, dokud běží jeho hlavní proces.</p>
+    </div>
+    <div class="card">
+      <h3>Image je receptovaný výrobek</h3>
+      <p>Dockerfile → <code>docker build</code> → image. Z jednoho image může vzniknout mnoho containerů.</p>
+    </div>
+    <div class="card">
+      <h3>Deploy není git pull</h3>
+      <p><code>git pull</code> změní zdrojáky na serveru. Teprve nový build + nový container změní skutečně běžící aplikaci.</p>
+    </div>
+    <div class="card">
+      <h3>Reverse proxy je před aplikací</h3>
+      <p>Veřejný nginx přijme request, řeší doménu/HTTPS a pošle ho internímu backendu.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    Praktický tahák vznikl z jednoho kompletního cvičení: VPS → nginx → Docker → Git → HTTPS → opakovaný deploy.
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+
+</body>
+</html>

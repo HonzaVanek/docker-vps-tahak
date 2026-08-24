@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Docker – Docker/VPS tahák</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="index.html">Docker/VPS tahák</a>
+    <nav>
+      <ul>
+        <li><a href="vps-linux.html">VPS & Linux</a></li>
+        <li><a href="docker.html">Docker</a></li>
+        <li><a href="nginx-https.html">Nginx & HTTPS</a></li>
+        <li><a href="git-deploy.html">Git & deploy</a></li>
+        <li><a href="troubleshooting.html">Chyby</a></li>
+        <li><a href="prikazy.html">Příkazy</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section class="hero">
+  <span class="badge">kapitola 2</span>
+  <h1>Docker: od instalace k vlastnímu image</h1>
+  <p>Co je Docker Engine, proč na Linux VPS nepotřebujeme Docker Desktop a jak se image mění na běžící container.</p>
+</section>
+
+<section>
+  <h2>Docker Desktop vs. Docker Engine</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Windows</h3>
+      <div class="arch">Windows
+  ↓
+Docker Desktop
+  ↓
+WSL2 / Linux
+  ↓
+Docker Engine
+  ↓
+containers</div>
+    </div>
+    <div class="card">
+      <h3>Linux VPS</h3>
+      <div class="arch">Debian Linux
+  ↓
+dockerd
+  ↓
+containerd
+  ↓
+runc / kernel
+  ↓
+containers</div>
+    </div>
+  </div>
+  <p>Na VPS není potřeba Docker Desktop, protože Linuxové prostředí už je samotný hostitelský systém.</p>
+</section>
+
+<section>
+  <h2>Docker stack</h2>
+  <div class="arch">docker CLI
+   ↓
+dockerd (Docker Engine daemon)
+   ↓
+containerd
+   ↓
+runc
+   ↓
+Linux kernel
+   ↓
+běžící container</div>
+  <p>
+    <strong>Runtime</strong> je vrstva, která skutečně realizuje běh containeru:
+    připraví izolaci, filesystem, cgroups/namespaces a spustí proces.
+  </p>
+</section>
+
+<section>
+  <h2>Instalace Dockeru z oficiálního APT repozitáře</h2>
+  <pre><code>sudo install -m 0755 -d /etc/apt/keyrings
+
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg \
+  -o /etc/apt/keyrings/docker.asc
+
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt update
+
+sudo apt install docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin</code></pre>
+  <p>
+    TLS certifikáty chrání HTTPS spojení k repozitáři; GPG signing key zase umožňuje APT ověřit,
+    že metadata/balíčky skutečně pocházejí od Dockeru a nebyly změněny.
+  </p>
+</section>
+
+<section>
+  <h2>Docker daemon jako systemd služba</h2>
+  <pre><code>systemctl status docker</code></pre>
+  <p>Typický výstup ukáže:</p>
+  <pre><code>Loaded: loaded (...; enabled)
+Active: active (running)
+Main PID: ... (dockerd)</code></pre>
+  <p>CLI komunikuje s daemonem přes Unix socket:</p>
+  <pre><code>/var/run/docker.sock</code></pre>
+  <p>Oprávnění typicky:</p>
+  <pre><code>srw-rw---- 1 root docker ... /var/run/docker.sock</code></pre>
+  <p>
+    Proto běžný uživatel bez členství ve skupině <code>docker</code> dostane
+    <code>permission denied</code>. Používali jsme tedy <code>sudo docker ...</code>.
+  </p>
+  <div class="callout warn">
+    Členství ve skupině <code>docker</code> je prakticky root-equivalent oprávnění. Není to „nevinná“ skupina.
+  </div>
+</section>
+
+<section>
+  <h2>Image vs. container</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Image</h3>
+      <p>Neměnná šablona/layered artefakt. Vzniká buildem a může být základem mnoha containerů.</p>
+    </div>
+    <div class="card">
+      <h3>Container</h3>
+      <p>Konkrétní běžící nebo zastavená instance image. Má svůj proces, síť a writable vrstvu.</p>
+    </div>
+  </div>
+  <pre><code>sudo docker run hello-world
+sudo docker images
+sudo docker ps
+sudo docker ps -a</code></pre>
+  <p>
+    <code>docker run</code> nejprve hledá image lokálně. Když není, stáhne ho z výchozího registry (Docker Hub),
+    vytvoří container a spustí jeho hlavní proces.
+  </p>
+</section>
+
+<section>
+  <h2>Port mapping</h2>
+  <pre><code>sudo docker run --name docker-nginx -p 8080:80 -d nginx</code></pre>
+  <p><code>-p HOST_PORT:CONTAINER_PORT</code>.</p>
+  <div class="arch">VPS :8080
+   ↓
+Docker
+   ↓
+container :80</div>
+  <p>Výchozí publikace znamená typicky všechna rozhraní:</p>
+  <pre><code>0.0.0.0:8080 → container:80</code></pre>
+  <p>Pro backend za reverse proxy jsme port schovali jen na localhost:</p>
+  <pre><code>sudo docker run --name docker-nginx \
+  -p 127.0.0.1:8080:80 \
+  -d nginx</code></pre>
+  <div class="arch">internet → 185.x.x.x:8080  ✗
+VPS      → 127.0.0.1:8080  ✓</div>
+</section>
+
+<section>
+  <h2>Vlastní Dockerfile a build</h2>
+  <pre><code>FROM nginx:latest
+
+COPY index.html /usr/share/nginx/html/index.html</code></pre>
+  <pre><code>sudo docker build -t docker-static:v1 .</code></pre>
+  <p>
+    Tečka je <strong>build context</strong>. Docker má při buildu k dispozici soubory z aktuálního adresáře.
+  </p>
+  <p>Proto jsme přidali:</p>
+  <pre><code># .dockerignore
+.git</code></pre>
+  <p>
+    <code>.dockerignore</code> říká Dockeru, co nemá posílat do build contextu.
+    Není to totéž co <code>.gitignore</code>.
+  </p>
+</section>
+
+<section>
+  <h2>Docker Compose</h2>
+  <p>
+    Compose je deklarativní popis celého prostředí. Hodí se ve chvíli, kdy máme více služeb:
+    například web + databázi + Redis.
+  </p>
+  <pre><code>services:
+  web:
+    image: moje-app
+    ports:
+      - "8080:8000"
+
+  db:
+    image: postgres</code></pre>
+  <pre><code>docker compose up -d</code></pre>
+  <p>
+    Dockerfile odpovídá hlavně na „jak sestavit image?“.
+    Compose odpovídá na „jak mají spolu běžet jednotlivé služby?“.
+  </p>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    Praktický tahák vznikl z jednoho kompletního cvičení: VPS → nginx → Docker → Git → HTTPS → opakovaný deploy.
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+
+</body>
+</html>

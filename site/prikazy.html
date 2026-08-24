@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Příkazy – Docker/VPS tahák</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="index.html">Docker/VPS tahák</a>
+    <nav>
+      <ul>
+        <li><a href="vps-linux.html">VPS & Linux</a></li>
+        <li><a href="docker.html">Docker</a></li>
+        <li><a href="nginx-https.html">Nginx & HTTPS</a></li>
+        <li><a href="git-deploy.html">Git & deploy</a></li>
+        <li><a href="troubleshooting.html">Chyby</a></li>
+        <li><a href="prikazy.html">Příkazy</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section class="hero">
+  <span class="badge">rychlý tahák</span>
+  <h1>Příkazy na jedno místo</h1>
+  <p>Když si potřebuješ rychle připomenout syntaxi bez dlouhého vysvětlování.</p>
+</section>
+
+<section class="grid">
+  <div class="card">
+    <h3>Linux</h3>
+    <pre><code>pwd
+ls
+ls -la
+cd cesta
+cd ..
+cat soubor
+nano soubor
+rm soubor</code></pre>
+  </div>
+  <div class="card">
+    <h3>Služby</h3>
+    <pre><code>systemctl status nginx
+systemctl status docker
+sudo systemctl reload nginx
+sudo systemctl restart nginx</code></pre>
+  </div>
+  <div class="card">
+    <h3>Síť</h3>
+    <pre><code>sudo ss -tulpn
+curl http://127.0.0.1:8080
+curl -I http://domena
+curl -I https://domena</code></pre>
+  </div>
+  <div class="card">
+    <h3>APT</h3>
+    <pre><code>sudo apt update
+sudo apt install BALICEK
+apt-cache policy BALICEK</code></pre>
+  </div>
+  <div class="card">
+    <h3>Docker</h3>
+    <pre><code>sudo docker ps
+sudo docker ps -a
+sudo docker image ls
+sudo docker build -t app:v2 .
+sudo docker stop app
+sudo docker rm app
+sudo docker logs app</code></pre>
+  </div>
+  <div class="card">
+    <h3>Docker run</h3>
+    <pre><code>sudo docker run \
+  --name app \
+  --restart unless-stopped \
+  -p 127.0.0.1:8080:80 \
+  -d \
+  app:v2</code></pre>
+  </div>
+  <div class="card">
+    <h3>Nginx</h3>
+    <pre><code>sudo nano /etc/nginx/sites-available/app.example.cz
+sudo ln -s /etc/nginx/sites-available/app.example.cz \
+  /etc/nginx/sites-enabled/app.example.cz
+
+sudo nginx -t
+sudo systemctl reload nginx</code></pre>
+  </div>
+  <div class="card">
+    <h3>Certbot</h3>
+    <pre><code>sudo certbot --nginx -d app.example.cz
+systemctl status certbot.timer
+sudo certbot renew --dry-run</code></pre>
+  </div>
+  <div class="card">
+    <h3>Git</h3>
+    <pre><code>git status
+git diff
+git add .
+git commit -m "message"
+git push
+git pull
+git log --oneline
+git remote -v</code></pre>
+  </div>
+  <div class="card">
+    <h3>SSH GitHub</h3>
+    <pre><code>ssh-keygen -t ed25519 -C "label"
+ssh -T git@github.com</code></pre>
+  </div>
+</section>
+
+<section>
+  <h2>Standardní deploy nové verze</h2>
+  <pre><code>cd ~/projekt
+git pull
+
+sudo docker build -t moje-app:vN .
+
+sudo docker stop moje-app
+sudo docker rm moje-app
+
+sudo docker run \
+  --name moje-app \
+  --restart unless-stopped \
+  -p 127.0.0.1:8080:80 \
+  -d \
+  moje-app:vN
+
+sudo docker ps
+curl http://127.0.0.1:8080
+curl -I https://app.example.cz</code></pre>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    Praktický tahák vznikl z jednoho kompletního cvičení: VPS → nginx → Docker → Git → HTTPS → opakovaný deploy.
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+
+</body>
+</html>

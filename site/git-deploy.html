@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Git & deploy – Docker/VPS tahák</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="index.html">Docker/VPS tahák</a>
+    <nav>
+      <ul>
+        <li><a href="vps-linux.html">VPS & Linux</a></li>
+        <li><a href="docker.html">Docker</a></li>
+        <li><a href="nginx-https.html">Nginx & HTTPS</a></li>
+        <li><a href="git-deploy.html">Git & deploy</a></li>
+        <li><a href="troubleshooting.html">Chyby</a></li>
+        <li><a href="prikazy.html">Příkazy</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section class="hero">
+  <span class="badge">kapitola 4</span>
+  <h1>Git, GitHub a nový deploy</h1>
+  <p>Jak jsme oddělili vývoj na lokálním PC od nasazování na VPS.</p>
+</section>
+
+<section>
+  <h2>Repo na VPS</h2>
+  <pre><code>cd ~/docker-static
+git init
+git branch -m main</code></pre>
+  <p>Git vytvoří skrytý adresář <code>.git</code>. Ten obsahuje historii a metadata repozitáře.</p>
+  <pre><code>git status
+git add Dockerfile index.html .dockerignore
+git diff --cached
+git commit -m "Initial Docker static site"</code></pre>
+  <p>
+    Tok změny:
+  </p>
+  <div class="arch">working directory
+      ↓ git add
+staging area
+      ↓ git commit
+Git historie</div>
+</section>
+
+<section>
+  <h2>Remote GitHub</h2>
+  <pre><code>git remote add origin git@github.com:USER/REPO.git
+git remote -v</code></pre>
+  <p>
+    <code>origin</code> je běžná lokální přezdívka pro hlavní vzdálený repozitář.
+  </p>
+</section>
+
+<section>
+  <h2>SSH key na VPS jako Deploy key</h2>
+  <pre><code>ssh-keygen -t ed25519 -C "VPS GitHub"</code></pre>
+  <p>Vznikne:</p>
+  <pre><code>~/.ssh/id_ed25519       # private – nikdy neposílat
+~/.ssh/id_ed25519.pub   # public – lze přidat na GitHub</code></pre>
+  <p>
+    Na serveru je vhodné použít Deploy key jen pro konkrétní repo.
+  </p>
+  <pre><code>ssh -T git@github.com
+git push -u origin main</code></pre>
+</section>
+
+<section>
+  <h2>SSH key na vývojářském Windows PC</h2>
+  <p>
+    Existující klíč pro jiný server není dobré bezmyšlenkovitě přepisovat.
+    Pro GitHub jsme vytvořili vlastní:
+  </p>
+  <pre><code>ssh-keygen -t ed25519 \
+  -C "moje@email.cz" \
+  -f "$env:USERPROFILE\.ssh\id_ed25519_github"</code></pre>
+  <p>Do <code>C:\Users\...\ .ssh\config</code>:</p>
+  <pre><code>Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_github
+    IdentitiesOnly yes</code></pre>
+  <pre><code>ssh -T git@github.com</code></pre>
+</section>
+
+<section>
+  <h2>Clone na lokální PC</h2>
+  <pre><code>git clone git@github.com:USER/REPO.git
+cd REPO
+git status
+git log --oneline</code></pre>
+  <p>
+    Po clone máme stejné commity lokálně i na GitHubu.
+  </p>
+</section>
+
+<section>
+  <h2>Celý deploy cyklus</h2>
+  <div class="arch">WINDOWS
+  upravím HTML/CSS/JS
+      ↓
+git add
+git commit
+git push
+      ↓
+GITHUB
+      ↓
+VPS
+git pull
+      ↓
+docker build
+      ↓
+nový image
+      ↓
+starý container stop + rm
+      ↓
+nový container
+      ↓
+nginx pořád proxyuje na stejný port
+      ↓
+nová verze webu</div>
+</section>
+
+<section>
+  <h2>Důležitý princip: git pull ještě není deploy</h2>
+  <p>Na VPS:</p>
+  <pre><code>git pull</code></pre>
+  <p>změní pouze zdrojové soubory. Běžící container pořád používá starý image.</p>
+  <p>Nový image:</p>
+  <pre><code>sudo docker build -t docker-static:v2 .</code></pre>
+  <p>Pak výměna containeru:</p>
+  <pre><code>sudo docker stop docker-static
+sudo docker rm docker-static
+
+sudo docker run \
+  --name docker-static \
+  --restart unless-stopped \
+  -p 127.0.0.1:8080:80 \
+  -d \
+  docker-static:v2</code></pre>
+</section>
+
+<section>
+  <h2>Proč ne git pull uvnitř běžícího containeru?</h2>
+  <p>
+    Technicky by to šlo, ale image by zůstal starý a container by byl ručně změněný.
+    Po jeho odstranění by se nově vytvořený container vrátil ke staré verzi.
+  </p>
+  <div class="callout good">
+    Lepší princip: konkrétní Git commit → konkrétní Docker image → konkrétní container.
+  </div>
+</section>
+
+<section>
+  <h2>Restart policy</h2>
+  <pre><code>sudo docker update --restart unless-stopped docker-static
+
+sudo docker inspect \
+  -f '{{.HostConfig.RestartPolicy.Name}}' \
+  docker-static</code></pre>
+  <p>
+    Díky <code>unless-stopped</code> se aplikace po rebootu VPS automaticky vrátí.
+  </p>
+  <pre><code>sudo reboot</code></pre>
+  <p>Po restartu jsme ověřili:</p>
+  <pre><code>systemctl status nginx
+systemctl status docker
+sudo docker ps
+curl -I https://docker.example.cz</code></pre>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    Praktický tahák vznikl z jednoho kompletního cvičení: VPS → nginx → Docker → Git → HTTPS → opakovaný deploy.
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+
+</body>
+</html>
