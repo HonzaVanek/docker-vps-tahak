@@ -52,17 +52,165 @@ index.html</div>
 </section>
 
 <section>
-  <h2>Debianí struktura nginx konfigurace</h2>
+  <h2>sites-available vs. sites-enabled</h2>
+
+  <p>
+    Debianí instalace nginxu používá běžnou organizační konvenci:
+  </p>
+
   <pre><code>/etc/nginx/sites-available/
 /etc/nginx/sites-enabled/</code></pre>
+
+  <h3>sites-available</h3>
+
   <p>
-    <code>sites-available</code> obsahuje připravené konfigurace.
-    <code>sites-enabled</code> obsahuje aktivní konfigurace, typicky jako symlinky.
+    Tady máme uložené konfigurace webů, které na serveru existují
+    nebo které máme připravené.
   </p>
+
+  <pre><code>/etc/nginx/sites-available/
+├── default
+├── docker.kekor.cz
+└── tahak.kekor.cz</code></pre>
+
+  <p>
+    Samotná přítomnost souboru v <code>sites-available</code>
+    ještě neznamená, že jej nginx používá.
+  </p>
+
+  <div class="callout">
+    Název souboru také není pro nginx magický.
+    Rozhodující je obsah konfigurace, například
+    <code>server_name tahak.kekor.cz;</code>.
+  </div>
+
+  <h3>sites-enabled</h3>
+
+  <p>
+    Nginx má ve své hlavní konfiguraci nastaveno načítání konfigurací
+    ze <code>sites-enabled</code>.
+  </p>
+
+  <p>
+    Proto jsou aktivní právě konfigurace dostupné přes tento adresář.
+  </p>
+
+  <pre><code>/etc/nginx/sites-enabled/
+├── default
+├── docker.kekor.cz
+└── tahak.kekor.cz</code></pre>
+
+  <p>
+    Obvykle tam ale nedáváme kopii skutečného konfiguračního souboru.
+    Použijeme <strong>symbolický link</strong>.
+  </p>
+
+  <div class="arch">sites-enabled/tahak.kekor.cz
+             │
+             │ symbolic link
+             ▼
+sites-available/tahak.kekor.cz</div>
+
+  <p>
+    Výhoda je, že skutečná konfigurace existuje pouze jednou.
+  </p>
+
+  <p>
+    Web lze deaktivovat odstraněním symlinku ze
+    <code>sites-enabled</code>, aniž bychom smazali jeho konfiguraci
+    ze <code>sites-available</code>.
+  </p>
+</section>
+
+<section>
+  <h2>Jak přesně funguje ln -s?</h2>
+
+  <p>Správný příkaz:</p>
+
   <pre><code>sudo ln -s \
-  /etc/nginx/sites-available/docker.example.cz \
-  /etc/nginx/sites-enabled/docker.example.cz</code></pre>
-  <p><code>ln -s</code> vytvoří symbolický odkaz.</p>
+  /etc/nginx/sites-available/tahak.kekor.cz \
+  /etc/nginx/sites-enabled/tahak.kekor.cz</code></pre>
+
+  <p>Syntaxe je:</p>
+
+  <pre><code>ln -s TARGET LINK_NAME</code></pre>
+
+  <table>
+    <tr>
+      <th>Část</th>
+      <th>Význam</th>
+    </tr>
+    <tr>
+      <td><code>ln</code></td>
+      <td>vytvoření linku</td>
+    </tr>
+    <tr>
+      <td><code>-s</code></td>
+      <td>symbolický link místo hard linku</td>
+    </tr>
+    <tr>
+      <td>první cesta</td>
+      <td>skutečný cílový soubor</td>
+    </tr>
+    <tr>
+      <td>druhá cesta</td>
+      <td>kde má vzniknout symlink</td>
+    </tr>
+  </table>
+
+  <p>Výsledek ověříme:</p>
+
+  <pre><code>ls -l /etc/nginx/sites-enabled/</code></pre>
+
+  <p>Správně například:</p>
+
+  <pre><code>tahak.kekor.cz -> /etc/nginx/sites-available/tahak.kekor.cz</code></pre>
+
+  <h3>Chyba: symlink ukazuje sám na sebe</h3>
+
+  <p>
+    Během našeho cvičení jsme omylem použili:
+  </p>
+
+  <pre><code>sudo ln -s tahak.kekor.cz \
+  /etc/nginx/sites-enabled/tahak.kekor.cz</code></pre>
+
+  <p>
+    První cesta byla relativní.
+    Relativní target symlinku se interpretuje vzhledem k adresáři,
+    ve kterém se samotný symlink nachází.
+  </p>
+
+  <p>Vzniklo tedy ve skutečnosti:</p>
+
+  <div class="arch">/etc/nginx/sites-enabled/tahak.kekor.cz
+             ↓
+/etc/nginx/sites-enabled/tahak.kekor.cz
+             ↓
+/etc/nginx/sites-enabled/tahak.kekor.cz
+             ↓
+...</div>
+
+  <p>Nginx pak při testu skončil chybou:</p>
+
+  <pre><code>Too many levels of symbolic links</code></pre>
+
+  <p>
+    Operační systém zastavil nekonečné následování symlinku.
+  </p>
+
+  <p>Oprava:</p>
+
+  <pre><code>sudo rm /etc/nginx/sites-enabled/tahak.kekor.cz
+
+sudo ln -s \
+  /etc/nginx/sites-available/tahak.kekor.cz \
+  /etc/nginx/sites-enabled/tahak.kekor.cz</code></pre>
+
+  <div class="callout good">
+    U nginx konfigurací je proto přehledné používat u targetu
+    symlinku celou absolutní cestu.
+  </div>
 </section>
 
 <section>
@@ -89,6 +237,97 @@ index.html</div>
   <div class="arch">app1.example.cz → nginx → 127.0.0.1:8080 → container A
 app2.example.cz → nginx → 127.0.0.1:8081 → container B
 app3.example.cz → nginx → 127.0.0.1:8082 → container C</div>
+</section>
+
+<section>
+  <h2>Jak přesně funguje ln -s?</h2>
+
+  <p>Správný příkaz:</p>
+
+  <pre><code>sudo ln -s \
+  /etc/nginx/sites-available/tahak.kekor.cz \
+  /etc/nginx/sites-enabled/tahak.kekor.cz</code></pre>
+
+  <p>Syntaxe je:</p>
+
+  <pre><code>ln -s TARGET LINK_NAME</code></pre>
+
+  <table>
+    <tr>
+      <th>Část</th>
+      <th>Význam</th>
+    </tr>
+    <tr>
+      <td><code>ln</code></td>
+      <td>vytvoření linku</td>
+    </tr>
+    <tr>
+      <td><code>-s</code></td>
+      <td>symbolický link místo hard linku</td>
+    </tr>
+    <tr>
+      <td>první cesta</td>
+      <td>skutečný cílový soubor</td>
+    </tr>
+    <tr>
+      <td>druhá cesta</td>
+      <td>kde má vzniknout symlink</td>
+    </tr>
+  </table>
+
+  <p>Výsledek ověříme:</p>
+
+  <pre><code>ls -l /etc/nginx/sites-enabled/</code></pre>
+
+  <p>Správně například:</p>
+
+  <pre><code>tahak.kekor.cz -> /etc/nginx/sites-available/tahak.kekor.cz</code></pre>
+
+  <h3>Chyba: symlink ukazuje sám na sebe</h3>
+
+  <p>
+    Během našeho cvičení jsme omylem použili:
+  </p>
+
+  <pre><code>sudo ln -s tahak.kekor.cz \
+  /etc/nginx/sites-enabled/tahak.kekor.cz</code></pre>
+
+  <p>
+    První cesta byla relativní.
+    Relativní target symlinku se interpretuje vzhledem k adresáři,
+    ve kterém se samotný symlink nachází.
+  </p>
+
+  <p>Vzniklo tedy ve skutečnosti:</p>
+
+  <div class="arch">/etc/nginx/sites-enabled/tahak.kekor.cz
+             ↓
+/etc/nginx/sites-enabled/tahak.kekor.cz
+             ↓
+/etc/nginx/sites-enabled/tahak.kekor.cz
+             ↓
+...</div>
+
+  <p>Nginx pak při testu skončil chybou:</p>
+
+  <pre><code>Too many levels of symbolic links</code></pre>
+
+  <p>
+    Operační systém zastavil nekonečné následování symlinku.
+  </p>
+
+  <p>Oprava:</p>
+
+  <pre><code>sudo rm /etc/nginx/sites-enabled/tahak.kekor.cz
+
+sudo ln -s \
+  /etc/nginx/sites-available/tahak.kekor.cz \
+  /etc/nginx/sites-enabled/tahak.kekor.cz</code></pre>
+
+  <div class="callout good">
+    U nginx konfigurací je proto přehledné používat u targetu
+    symlinku celou absolutní cestu.
+  </div>
 </section>
 
 <section>

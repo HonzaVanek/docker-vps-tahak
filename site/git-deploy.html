@@ -104,6 +104,84 @@ git log --oneline</code></pre>
 </section>
 
 <section>
+    <h2>Kam na VPS klonovat repozitář?</h2>
+
+    <p>
+      Git repozitář není potřeba dávat do nginx adresářů ani do Dockeru.
+      Je to pouze zdrojový kód, ze kterého budeme následně stavět Docker image.
+    </p>
+
+    <p>
+      Pro náš jednoduchý VPS jsme repozitáře umístili přímo do home adresáře
+      běžného uživatele:
+    </p>
+
+    <pre><code>/home/vanekhv/
+  ├── docker-static/
+  └── docker-vps-tahak/</code></pre>
+
+    <p>
+      To má několik výhod:
+    </p>
+
+    <ul>
+      <li>soubory vlastní uživatel <code>vanekhv</code>,</li>
+      <li>pro <code>git pull</code> nepotřebujeme <code>sudo</code>,</li>
+      <li>zdrojáky jsou oddělené od systémové konfigurace v <code>/etc</code>,</li>
+      <li>zdrojáky jsou oddělené i od interního Docker storage.</li>
+    </ul>
+
+    <div class="callout">
+      <strong>Důležité:</strong>
+      adresář <code>~/docker-vps-tahak</code> není místo, kde „žije container“.
+      Jsou tam pouze zdrojové soubory projektu.
+    </div>
+
+    <div class="arch">/home/vanekhv/docker-vps-tahak/
+          │
+          │ docker build
+          ▼
+  Docker image
+          │
+          │ docker run
+          ▼
+  Docker container</div>
+
+    <p>
+      Docker images a containery si Docker ukládá a spravuje sám ve svém
+      interním úložišti. Nejsou uvnitř adresáře Git repozitáře.
+    </p>
+
+    <h3>Naklonování projektu</h3>
+
+    <pre><code>cd ~
+  git clone https://github.com/USER/REPO.git
+  cd REPO</code></pre>
+
+    <p>
+      <code>cd ~</code> znamená přejít do home adresáře aktuálního uživatele.
+      U našeho uživatele je to:
+    </p>
+
+    <pre><code>/home/vanekhv</code></pre>
+
+    <p>
+      <code>git clone</code> vytvoří nový adresář, stáhne pracovní soubory
+      a zároveň kompletní Git metadata do skrytého adresáře <code>.git</code>.
+    </p>
+
+    <pre><code>ls -la
+  git status
+  git log --oneline</code></pre>
+
+    <p>
+      Před Git příkazy je vždy dobré zkontrolovat, že opravdu stojíme
+      uvnitř správného repozitáře. Po novém SSH přihlášení totiž typicky
+      začínáme znovu v <code>/home/vanekhv</code>.
+    </p>
+</section>
+
+<section>
   <h2>Celý deploy cyklus</h2>
   <div class="arch">WINDOWS
   upravím HTML/CSS/JS

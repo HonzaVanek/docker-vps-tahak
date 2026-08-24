@@ -116,6 +116,30 @@ ssh -T git@github.com</code></pre>
   </div>
 </section>
 
+
+<section>
+  <h2>Jak číst příkaz místo slepého kopírování</h2>
+
+  <pre><code>sudo docker run \
+  --name docker-tahak \
+  --restart unless-stopped \
+  -p 127.0.0.1:8081:80 \
+  -d \
+  docker-tahak:v1</code></pre>
+
+  <table>
+    <tr><th>Část</th><th>Význam</th></tr>
+    <tr><td><code>sudo</code></td><td>spusť příkaz s root oprávněním</td></tr>
+    <tr><td><code>docker</code></td><td>Docker CLI</td></tr>
+    <tr><td><code>run</code></td><td>vytvoř a spusť nový container</td></tr>
+    <tr><td><code>--name docker-tahak</code></td><td>pojmenuj container</td></tr>
+    <tr><td><code>--restart unless-stopped</code></td><td>automaticky jej vrať po rebootu/pádu</td></tr>
+    <tr><td><code>-p 127.0.0.1:8081:80</code></td><td>host localhost:8081 → container:80</td></tr>
+    <tr><td><code>-d</code></td><td>běž detached na pozadí</td></tr>
+    <tr><td><code>docker-tahak:v1</code></td><td>image, ze kterého container vznikne</td></tr>
+  </table>
+</section>
+
 <section>
   <h2>Standardní deploy nové verze</h2>
   <pre><code>cd ~/projekt

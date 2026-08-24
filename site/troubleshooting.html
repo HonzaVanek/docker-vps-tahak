@@ -43,6 +43,100 @@ permission denied while trying to connect to the docker API at unix:///var/run/d
 </section>
 
 <section>
+  <h2>docker build: chybí build context</h2>
+
+  <pre><code>sudo docker build -t docker-tahak:v1</code></pre>
+
+  <p>Chyba:</p>
+
+  <pre><code>docker: 'docker buildx build' requires 1 argument</code></pre>
+
+  <p>Správně:</p>
+
+  <pre><code>sudo docker build -t docker-tahak:v1 .</code></pre>
+
+  <p>
+    Poslední <code>.</code> znamená aktuální adresář a slouží
+    jako build context.
+  </p>
+</section>
+
+<section>
+  <h2>Docker se pokouší stáhnout můj image z Docker Hubu</h2>
+
+  <p>Například:</p>
+
+  <pre><code>sudo docker run docker-vps-tahak</code></pre>
+
+  <p>Docker odpoví:</p>
+
+  <pre><code>Unable to find image 'docker-vps-tahak:latest' locally
+pull access denied ...</code></pre>
+
+  <p>
+    Docker lokálně nenašel image s přesným jménem
+    <code>docker-vps-tahak:latest</code>, a proto jej automaticky
+    začal hledat ve výchozím registry.
+  </p>
+
+  <p>
+    Pokud jsme image vybuildili jako:
+  </p>
+
+  <pre><code>docker-tahak:v1</code></pre>
+
+  <p>musíme použít právě:</p>
+
+  <pre><code>sudo docker run ... docker-tahak:v1</code></pre>
+</section>
+
+<section>
+  <h2>Container má správné jméno, ale běží v něm špatný web</h2>
+
+  <p>
+    Jméno containeru a image jsou dvě nezávislé věci.
+  </p>
+
+  <pre><code>sudo docker run \
+  --name docker-tahak \
+  -p 127.0.0.1:8081:80 \
+  -d nginx</code></pre>
+
+  <p>
+    Container se sice jmenuje <code>docker-tahak</code>,
+    ale vznikl z image <code>nginx</code>.
+  </p>
+
+  <p>Správně:</p>
+
+  <pre><code>sudo docker run \
+  --name docker-tahak \
+  --restart unless-stopped \
+  -p 127.0.0.1:8081:80 \
+  -d docker-tahak:v1</code></pre>
+</section>
+
+<section>
+  <h2>Nginx: Too many levels of symbolic links</h2>
+
+  <p>Chybný link:</p>
+
+  <pre><code>tahak.kekor.cz -> tahak.kekor.cz</code></pre>
+
+  <p>
+    Symlink ukazuje sám na sebe a vznikne nekonečný cyklus.
+  </p>
+
+  <pre><code>sudo rm /etc/nginx/sites-enabled/tahak.kekor.cz
+
+sudo ln -s \
+  /etc/nginx/sites-available/tahak.kekor.cz \
+  /etc/nginx/sites-enabled/tahak.kekor.cz
+
+sudo nginx -t</code></pre>
+</section>
+
+<section>
   <h2>Port 80 už používá systémový nginx</h2>
   <pre><code>sudo docker run -p 80:80 nginx</code></pre>
   <p>Selže:</p>

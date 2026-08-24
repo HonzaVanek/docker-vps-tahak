@@ -186,6 +186,167 @@ COPY index.html /usr/share/nginx/html/index.html</code></pre>
 </section>
 
 <section>
+  <h2>Build image – pozor na poslední tečku</h2>
+
+  <pre><code>sudo docker build -t docker-tahak:v1 .</code></pre>
+
+  <p>Příkaz se skládá z několika částí:</p>
+
+  <table>
+    <tr>
+      <th>Část</th>
+      <th>Význam</th>
+    </tr>
+    <tr>
+      <td><code>sudo</code></td>
+      <td>Docker socket zatím používáme s root oprávněním.</td>
+    </tr>
+    <tr>
+      <td><code>docker build</code></td>
+      <td>Sestav nový Docker image.</td>
+    </tr>
+    <tr>
+      <td><code>-t docker-tahak:v1</code></td>
+      <td>Dej image jméno <code>docker-tahak</code> a tag <code>v1</code>.</td>
+    </tr>
+    <tr>
+      <td><code>.</code></td>
+      <td>Build context je aktuální adresář.</td>
+    </tr>
+  </table>
+
+  <div class="callout warn">
+    Pokud poslední <code>.</code> zapomeneme, Docker neví,
+    odkud má vzít Dockerfile a ostatní soubory.
+  </div>
+
+  <p>Typická chyba:</p>
+
+  <pre><code>docker buildx build requires 1 argument</code></pre>
+
+  <p>
+    Docker tím říká, že chybí PATH, URL nebo jiný build context.
+  </p>
+
+  <h3>Co přesně znamená build context?</h3>
+
+  <p>
+    Máme například:
+  </p>
+
+  <pre><code>docker-vps-tahak/
+├── Dockerfile
+├── README.md
+└── site/
+    ├── index.html
+    ├── docker.html
+    └── assets/
+        └── style.css</code></pre>
+
+  <p>A Dockerfile:</p>
+
+  <pre><code>FROM nginx:latest
+
+COPY site/ /usr/share/nginx/html/</code></pre>
+
+  <p>
+    Díky tečce na konci <code>docker build ... .</code> dostane Docker
+    přístup k adresáři <code>site/</code> a může jej při buildu zkopírovat.
+  </p>
+</section>
+
+<section>
+  <h2>Spuštění containeru: jméno containeru není jméno image</h2>
+
+  <pre><code>sudo docker run \
+  --name docker-tahak \
+  --restart unless-stopped \
+  -p 127.0.0.1:8081:80 \
+  -d \
+  docker-tahak:v1</code></pre>
+
+  <p>
+    Tady jsou dvě různá jména, která se snadno pletou:
+  </p>
+
+  <pre><code>--name docker-tahak
+        ↑
+        jméno nového CONTAINERU
+
+
+docker-tahak:v1
+        ↑
+        IMAGE, ze kterého container vytvoříme</code></pre>
+
+  <p>
+    Když omylem napíšeme:
+  </p>
+
+  <pre><code>sudo docker run --name docker-tahak ... nginx</code></pre>
+
+  <p>
+    vznikne sice container jménem <code>docker-tahak</code>,
+    ale bude vytvořen z image <code>nginx:latest</code>.
+    Náš vlastní web v něm nebude.
+  </p>
+
+  <h3>Port mapping</h3>
+
+  <pre><code>-p 127.0.0.1:8081:80</code></pre>
+
+  <p>Čte se zleva doprava:</p>
+
+  <div class="arch">VPS:
+127.0.0.1:8081
+       │
+       │ Docker port mapping
+       ▼
+container:
+port 80
+       │
+       ▼
+nginx uvnitř containeru</div>
+
+  <p>
+    Port <code>8081</code> tedy není port nginxu uvnitř containeru.
+    Nginx v containeru pořád poslouchá na portu <code>80</code>.
+  </p>
+
+  <p>
+    <code>8081</code> je pouze port na hostitelském VPS,
+    který Docker překládá na port 80 containeru.
+  </p>
+
+  <h3>Proč nefunguje veřejná IP na portu 8081?</h3>
+
+  <pre><code>http://PUBLIC_VPS_IP:8081</code></pre>
+
+  <p>
+    Protože jsme port navázali pouze na:
+  </p>
+
+  <pre><code>127.0.0.1:8081</code></pre>
+
+  <p>
+    <code>127.0.0.1</code> je loopback – spojení dostupné pouze
+    uvnitř samotného VPS.
+  </p>
+
+  <div class="arch">z internetu:
+PUBLIC_IP:8081
+       ✗
+
+z VPS:
+127.0.0.1:8081
+       ✓</div>
+
+  <p>
+    To je záměr. Veřejnost má komunikovat se systémovým nginxem,
+    nikoli přímo s backend containerem.
+  </p>
+</section>
+
+<section>
   <h2>Docker Compose</h2>
   <p>
     Compose je deklarativní popis celého prostředí. Hodí se ve chvíli, kdy máme více služeb:
